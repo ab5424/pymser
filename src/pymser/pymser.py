@@ -162,7 +162,10 @@ def MSERm_index(MSEm, batch_size=1):
     equilibrated_index : int
         Index of the start of equilibrated data
     """
-    # Remove potential too low values that apears artificially on last points
+    # Remove last 0.1% of points to avoid the late trunctuation artefact
+    # see 10.1057/jors.2009.87 for more details
+    MSEm = MSEm[:int(len(MSEm)*0.999)]
+    # Also, remove potential too low values that apears artificially on last points
     MSEm = torch.where(MSEm < 1e-9,   # where value < 1e-9
                        max(MSEm),     # replace for max(MSEm)
                        MSEm)          # on MSEm array
@@ -573,11 +576,11 @@ def equilibrate(input_data,
     # Calculate the Marginal Standard Error curve
     MSEm_curve = calculate_MSEm(array_data, batch_size=batch_size)
 
-    if LLM is True:
+    if LLM:
         # Apply the MSER-LLM to get the index of the start of equilibrated data
         t0 = MSERm_LLM_index(MSEm_curve, batch_size=batch_size)
 
-    if LLM is False:
+    else:
         # Apply the MSER to get the index of the start of equilibrated data
         t0 = MSERm_index(MSEm_curve, batch_size=batch_size)
 
@@ -751,13 +754,13 @@ def equilibrate_enthalpy(energy,
     # Calculate the Marginal Standard Error for the energy
     MSEm_E = calculate_MSEm(energy, batch_size=batch_size)
 
-    if LLM is False:
-        # Apply the MSER to get the index of the start of equilibrated data
-        t0_E = MSERm_index(MSEm_E, batch_size=batch_size)
-
-    if LLM is True:
+    if LLM:
         # Apply the MSER-LLM to get the index of the start of equilibrated data
         t0_E = MSERm_LLM_index(MSEm_E, batch_size=batch_size)
+
+    else:
+        # Apply the MSER to get the index of the start of equilibrated data
+        t0_E = MSERm_index(MSEm_E, batch_size=batch_size)
 
     # Calculate autocorrelation time and the number of uncorrelated samples
     equilibrated_E = energy[t0_E:]
@@ -766,13 +769,14 @@ def equilibrate_enthalpy(energy,
     # Calculate the Marginal Standard Error for the number of molecules
     MSEm_N = calculate_MSEm(number_of_molecules, batch_size=batch_size)
 
-    if LLM is False:
+    if LLM:
+        # Apply the MSER-LLM to get the index of the start of equilibrated data
+        t0_N = MSERm_LLM_index(MSEm_N, batch_size=batch_size)
+
+    else:
         # Apply the MSER to get the index of the start of equilibrated data
         t0_N = MSERm_index(MSEm_N, batch_size=batch_size)
 
-    if LLM is True:
-        # Apply the MSER-LLM to get the index of the start of equilibrated data
-        t0_N = MSERm_LLM_index(MSEm_N, batch_size=batch_size)
 
     # Check if t0 < 75% of the data
     if t0_E < 0.75 * len(energy):
